@@ -38,21 +38,25 @@ class SAM:
         fluents: set[Fluent]  # list of all fluents collected from all traces
         trace_list: TraceList
         L_bLA: dict[str, set[
-            (str, set[int], list[PlanningObject])]] = dict()  # represents all parameter bound literals mapped by action
-        effA: dict[str, (set[(str, set[int], list[
-            PlanningObject])], set[(str, set[int], list[
-             PlanningObject])])] = dict()  # dict like preA that holds delete and add biding for each action name
+            (str, list[str], set[int])]] = dict()  # represents all parameter bound literals mapped by action
+        effA_add: dict[str, set[
+            (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+        # name
+        effA_delete: dict[str, set[
+            (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+        # name
         #  add is 0 index in tuple and delete is 1
-        preA: dict[str, set[(str, set[int], list[
-            PlanningObject])]] = dict()  # represents  parameter bound literals mapped by action, of pre-cond
-        Lifted_preA: [str, set[LearnedLiftedFluent]] = dict()
+        preA: dict[str, set[(str, list[int], list[
+            str])]] = dict()  # represents  parameter bound literals mapped by action, of pre-cond
         # LiftedPreA, LiftedEFF both of them are stets of learned lifted fluents
-        types: [str, str] = dict()
+        types: str = dict()
         action_triplets: set[SAS] = set()
         learned_lifted_fluents: set[LearnedLiftedFluent] = set()
+        learned_lifted_action: set[LearnedLiftedAction] = set()
+        action_2_sort: dict[str, list[str]] = dict()  # TODO use when knowing how to sort action
 
         # =======================================Initialization of data structures======================================
-        def __init__(self, types: [str, str], trace_list: TraceList):
+        def __init__(self, types: str, trace_list: TraceList ,action_2_sort: dict[str, list[str]]):
             """Creates a new SAMgenerator instance.
                     Args:
                         types (str set):
@@ -69,6 +73,7 @@ class SAM:
             self.update_action_triplets()
             self.collect_L_bLA()
             self.preA = self.L_bLA.copy()
+            self.action_2_sort = action_2_sort
 
         def update_action_triplets(self):
             for trace in self.trace_list.traces:
@@ -85,12 +90,15 @@ class SAM:
                     if isinstance(act, Action):
                         if not self.L_bLA.keys().__contains__(act.name):  # if act name not already id the dictionary
                             self.L_bLA[act.name] = set()  # initiate its set
-                        for f in act.precond.union(act.add, act.delete):   # for every fluent in the acts fluents
-                            param_indexes_in_literal: set[int] = set()  # ibitiate a set of ints
+                        for f in act.precond.union(act.add, act.delete):  # for every fluent in the acts fluents
+                            param_indexes_in_literal: list[int] = list()  # initiate a set of ints
+                            sorts: list[str] = list()
                             for obj in act.obj_params:  # for every object in the parameters
+                                sorts.append(obj.obj_type)
                                 if f.objects.__contains__(obj):  # if the object is true in fluent then
-                                    param_indexes_in_literal.add(act.obj_params.index(obj))  # add obj index to the set
-                            self.L_bLA[act.name].add((f.name, param_indexes_in_literal, f.objects))
+                                    param_indexes_in_literal.append(act.obj_params.index(obj))  # append obj index to
+                                    # the list
+                            self.L_bLA[act.name].add((f.name, sorts, param_indexes_in_literal))
 
         def remove_redundant_preconditions(self, sas: SAS):  # based on lines 6 to 8 in paper
             """removes all parameter-bound literals that there groundings are not pre-state"""
@@ -111,22 +119,21 @@ class SAM:
                 if (not pre_state.fluents.keys().__contains__(k)) or post_state.fluents[k] != pre_state[k]:
                     to_add = post_state.fluents[k]
                     fluent_name = k.name
-                    param_indexes_in_literal: set[int] = set()
+                    param_indexes_in_literal: list[int] = list()
                     for obj in act.obj_params:  # for every object in parameters, if object is in fluent, add its index
                         if k.objects.__contains__(obj):
-                            param_indexes_in_literal.add(act.obj_params.index(obj))
-                    bla = (fluent_name, param_indexes_in_literal, k.objects)
-                    if self.effA.keys().__contains__(act.name):  # if action name exists in dictionary the add
-                        if to_add:
-                            self.effA[act.name][0].add(bla)  # add it to add effect
+                            param_indexes_in_literal.append(act.obj_params.index(obj))
+                    bla = (fluent_name, k.objects, param_indexes_in_literal)
+                    if to_add:
+                        if self.effA_add.keys().__contains__(act.name):  # if action name exists in dictionary then add
+                            self.effA_add[act.name].add(bla)  # add it to add effect
                         else:
-                            self.effA[act.name][1].add(bla)  # add it to the delete effect
-
-                    else:  # action name not yet on dictionary
-                        if to_add:
-                            self.effA[act.name] = {{bla}, set()}  # add it to add effect and init set of delete
+                            self.effA_add[act.name] = {{bla}, set()}
+                    else:
+                        if self.effA_delete.keys().__contains__(act.name):
+                            self.effA_delete[act.name].add(bla)  # add it to the delete effect
                         else:
-                            self.effA[act.name] = {set(), {bla}}  # add it to the delete effect ant init set of add
+                            self.effA_delete[act.name] = {set(), {bla}}  # add it to the delete effect ant init set
 
         def loop_over_action_triplets(self):
             """implement lines 5-11 in the SAM paper
@@ -137,39 +144,50 @@ class SAM:
                 self.add_surely_effects(sas)
 
         # =======================================finalize and return a model============================================
+        def make_act_sorts(self):
+            # TODO change method when knowing how to type inference
+            pass
+
+        def make_act_lifted_fluent_set(self, act_name,
+                                       keyword="PRE" | "ADD" | "DELETE") -> (
+                set)[LearnedLiftedFluent]:
+            """ make the fluent set for an action based on the keyword provided"""
+            learned_fluents_set = set()
+            if keyword == "PRE":
+                for fluents_set in self.preA[act_name]:
+                    for fluent_info in fluents_set:
+                        pre_lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
+                        learned_fluents_set.add(pre_lifted_fluent)
+
+            if keyword == "ADD":
+                for fluents_set in self.effA_add[act_name]:
+                    for fluent_info in fluents_set:
+                        pre_lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
+                        learned_fluents_set.add(pre_lifted_fluent)
+            if keyword == "DELETE":
+                for fluents_set in self.effA_add[act_name]:
+                    for fluent_info in fluents_set:
+                        pre_lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
+                        learned_fluents_set.add(pre_lifted_fluent)
+            return learned_fluents_set
+
+        def make_learned_fluent_set(self):
+            """ unionize all fluents of action to make a set of all fluents in domain"""
+            for lift_act in self.learned_lifted_action:
+                self.learned_lifted_fluents.update(lift_act.precond, lift_act.add, lift_act.delete)
+
         def make_lifted_instances(self):
+            """makes the learned lifted and learned fluents set based on the collected data"""
+            # {act_name:{pre:set,add:set,delete:set}}
             for action_name, fluent_tuples in self.L_bLA.items():
-                param_sorts = []  # Define the param_sorts list based on your data
-                act = LearnedLiftedAction(action_name, param_sorts)
-
-                # Iterate through fluent_tuples to create instances of LearnedLiftedFluent and associate them with
-                # the action
-                for fluent_tuple in fluent_tuples:
-                    fluent_name, param_act_inds, objects = fluent_tuple
-                    fluent = LearnedLiftedFluent(fluent_name, param_sorts, param_act_inds)
-
-                    # Associate the fluent with the action's preconditions, add, or delete
-                    if action_name in self.preA:
-                        act.precond.add(fluent)
-                    elif action_name in self.effA:
-                        act.add.add(fluent)
-                    else:
-                        act.delete.add(fluent)
+                learned_act_fluents: dict[str, set[LearnedLiftedFluent]] = dict()
+                learned_act_fluents["precond"] = self.make_act_lifted_fluent_set(action_name, keyword="PRE")
+                learned_act_fluents["add"] = self.make_act_lifted_fluent_set(action_name, keyword="ADD")
+                learned_act_fluents["delete"] = self.make_act_lifted_fluent_set(action_name, keyword="DELETE")
+                lifted_act = LearnedLiftedAction(action_name, self.action_2_sort[action_name],
+                                                 precond=learned_act_fluents["precond"],
+                                                 add=learned_act_fluents["add"], delete=learned_act_fluents["delete"])
+                self.learned_lifted_action.add(lifted_act)
 
         def generate_model(self) -> model.Model:
-            pass
-            # # step 2 -> initialize effect to empty-set and pre to union off all fluents observed:
-            # # note that effect set already initialized to empty set
-            # # line 5 we iterate over action triplets for all identical bindings and update effect and pre accordingly
-            # self.loop_over_action_triplets()
-            #
-            # learned_action_set: set[LearnedAction] = set()
-            # learned_fluents_set: set[LearnedFluent] = set()
-            # # for lifted_action_name in self.lifted_action_groundings.keys():
-            # #     learned_act = LearnedAction(lifted_action_name, list()) and add afterwards
-            # #     pass
-            # for f in self.fluents:
-            #    l_f = LearnedFluent(f.name, f.objects)  # I just added all existing fluents, don't know if it's correct
-            #     learned_fluents_set.add(l_f)
-            #
-            # return model.Model(learned_fluents_set, learned_action_set)
+            return model.Model(self.learned_lifted_fluents, self.learned_lifted_action)
