@@ -17,7 +17,7 @@ def check_injective_assumption(parameters: list[PlanningObject], action_name):
 
 
 class SAM:
-    def __new__(cls, types: dict[str, str], objects: list[PlanningObject], trace_list: TraceList):
+    def __new__(cls, types: str, objects: list[PlanningObject], trace_list: TraceList, action_2_sort: dict[str, list[str]]):
         """Creates a new SAM instance.
                             Args:
                                 types (dict str -> str):
@@ -29,7 +29,7 @@ class SAM:
                             :return:
                                a model based on SAM learning
                             """
-        sam_generator: SAM.SAMgenerator = SAM.SAMgenerator(types, trace_list)
+        sam_generator: SAM.SAMgenerator = SAM.SAMgenerator(types, trace_list, action_2_sort)
         return sam_generator.generate_model()
 
     class SAMgenerator:
@@ -56,7 +56,7 @@ class SAM:
         action_2_sort: dict[str, list[str]] = dict()  # TODO use when knowing how to sort action
 
         # =======================================Initialization of data structures======================================
-        def __init__(self, types: str, trace_list: TraceList ,action_2_sort: dict[str, list[str]]):
+        def __init__(self, types: str, trace_list: TraceList, action_2_sort: dict[str, list[str]]):
             """Creates a new SAMgenerator instance.
                     Args:
                         types (str set):
