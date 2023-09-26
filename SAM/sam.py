@@ -94,6 +94,7 @@ class SAM:
                             param_indexes_in_literal: list[int] = list()  # initiate a set of ints
                             sorts: list[str] = list()
                             for obj in act.obj_params:  # for every object in the parameters
+                                # TODO change when knowing how to sort types
                                 sorts.append(obj.obj_type)
                                 if f.objects.__contains__(obj):  # if the object is true in fluent then
                                     param_indexes_in_literal.append(act.obj_params.index(obj))  # append obj index to
@@ -105,7 +106,7 @@ class SAM:
             act: Action = sas.action
             pre_state: State = sas.pre_state
             for param_bound_lit in self.preA[act.name]:
-                fluent = Fluent(param_bound_lit[0], param_bound_lit[2])
+                fluent = Fluent(param_bound_lit[0], act.obj_params)  # make a fluent instance so we can use eq function
                 if not pre_state.fluents.keys().__contains__(fluent) or not pre_state.fluents[fluent]:  # remove if
                     # unbound or if not true, means, preA contains at the end only true value fluents
                     self.preA[act.name].remove(param_bound_lit)
@@ -115,25 +116,38 @@ class SAM:
             act: Action = sas.action
             pre_state: State = sas.pre_state.copy()
             post_state: State = sas.post_state.copy()
-            for k, v in post_state.fluents.items():
-                if (not pre_state.fluents.keys().__contains__(k)) or post_state.fluents[k] != pre_state[k]:
-                    to_add = post_state.fluents[k]
-                    fluent_name = k.name
+            # add all add_effects of parameter bound literals
+            self.add_literal_binding_to_eff(post_state, pre_state, act, add_delete="add")
+            # add all delete_effects of parameter bound literals
+            self.add_literal_binding_to_eff(pre_state, post_state, act, add_delete="delete")
+
+        def add_literal_binding_to_eff(self, s1: State, s2: State, act: Action,
+                                       add_delete="add" | "delete"):
+            """gets all fluents in the difference of s1-s2 and add all binding that
+               appears in difference to self.eff_'add_delete'[act.name] """
+            for k, v in s1.fluents.items():
+                if not s2.items().__contains__(k, v):
                     param_indexes_in_literal: list[int] = list()
+                    fluent_name = k.name
+                    sorts: list[str] = list()
                     for obj in act.obj_params:  # for every object in parameters, if object is in fluent, add its index
+                        sorts.append(obj.obj_type)
                         if k.objects.__contains__(obj):
                             param_indexes_in_literal.append(act.obj_params.index(obj))
-                    bla = (fluent_name, k.objects, param_indexes_in_literal)
-                    if to_add:
-                        if self.effA_add.keys().__contains__(act.name):  # if action name exists in dictionary then add
+                    bla: tuple[str, list[str], list[int]] = (fluent_name, sorts, param_indexes_in_literal)
+                    if add_delete == "delete":
+                        if self.effA_delete.keys().__contains__(act.name):  # if action name exists in dictionary
+                            # then add
+                            self.effA_delete[act.name].add(bla)  # add it to add effect
+                        else:
+                            self.effA_delete[act.name] = {bla}
+
+                    if add_delete == "add":
+                        if self.effA_add.keys().__contains__(
+                                act.name):  # if action name exists in dictionary then add
                             self.effA_add[act.name].add(bla)  # add it to add effect
                         else:
-                            self.effA_add[act.name] = {{bla}, set()}
-                    else:
-                        if self.effA_delete.keys().__contains__(act.name):
-                            self.effA_delete[act.name].add(bla)  # add it to the delete effect
-                        else:
-                            self.effA_delete[act.name] = {set(), {bla}}  # add it to the delete effect ant init set
+                            self.effA_add[act.name] = {bla}
 
         def loop_over_action_triplets(self):
             """implement lines 5-11 in the SAM paper
@@ -145,6 +159,7 @@ class SAM:
 
         # =======================================finalize and return a model============================================
         def make_act_sorts(self):
+            """sorts all actions parameter types"""
             # TODO change method when knowing how to type inference
             pass
 
@@ -177,17 +192,26 @@ class SAM:
                 self.learned_lifted_fluents.update(lift_act.precond, lift_act.add, lift_act.delete)
 
         def make_lifted_instances(self):
-            """makes the learned lifted and learned fluents set based on the collected data"""
+            """makes the learned lifted and learned fluents set based
+              on the collected data in add,delete and pre dicts"""
             # {act_name:{pre:set,add:set,delete:set}}
-            for action_name, fluent_tuples in self.L_bLA.items():
+            # for each action that was observed do:
+            for action_name in self.L_bLA.keys():
                 learned_act_fluents: dict[str, set[LearnedLiftedFluent]] = dict()
+                # make all action's pre-condition fluents and add to set
                 learned_act_fluents["precond"] = self.make_act_lifted_fluent_set(action_name, keyword="PRE")
+                # make all action's add_eff fluents and add to set
                 learned_act_fluents["add"] = self.make_act_lifted_fluent_set(action_name, keyword="ADD")
+                # make all action's delete_eff fluents and add to set
                 learned_act_fluents["delete"] = self.make_act_lifted_fluent_set(action_name, keyword="DELETE")
+                # make learned lifted action instance
                 lifted_act = LearnedLiftedAction(action_name, self.action_2_sort[action_name],
                                                  precond=learned_act_fluents["precond"],
                                                  add=learned_act_fluents["add"], delete=learned_act_fluents["delete"])
+                # add learned_lifted action to all learned actions set
                 self.learned_lifted_action.add(lifted_act)
+            # initiate a learned fluent set
+            self.make_learned_fluent_set()
 
         def generate_model(self) -> model.Model:
             return model.Model(self.learned_lifted_fluents, self.learned_lifted_action)
