@@ -74,7 +74,6 @@ class SAMgenerator:
                 self.action_triplets.update(set(trace.get_sas_triples(act)))
 
     def update_trace_list(self, trace_list: TraceList):
-        i: int = 0
         for trace in trace_list.traces:
             self.trace_list.insert(trace_list.__len__(), trace)
         self.update_action_triplets(trace_list.traces)
