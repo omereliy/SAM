@@ -23,16 +23,16 @@ class SAMgenerator:
     """
     fluents: set[Fluent] = set()  # list of all fluents collected from all traces
     trace_list: TraceList = TraceList()
-    L_bLA: dict[str, set[
+    L_bLA: dict[str, list[
         (str, list[str], set[int])]] = dict()  # represents all parameter bound literals mapped by action
-    effA_add: dict[str, set[
+    effA_add: dict[str, list[
         (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
-    effA_delete: dict[str, set[
+    effA_delete: dict[str, list[
         (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
     #  add is 0 index in tuple and delete is 1
-    preA: dict[str, set[(str, list[int], list[
+    preA: dict[str, list[(str, list[int], list[
         str])]] = dict()  # represents  parameter bound literals mapped by action, of pre-cond
     # LiftedPreA, LiftedEFF both of them are stets of learned lifted fluents
     types: set[str] = set()
@@ -57,8 +57,9 @@ class SAMgenerator:
         if types is not None:
             self.types = types
         if trace_list is not None:
+            self.trace_list = trace_list
             self.fluents = self.trace_list.get_fluents()
-            self.update_action_triplets(TraceList.traces)
+            self.update_action_triplets(self.trace_list.traces)
             self.action_2_sort = action_2_sort
             self.update_L_bLA(trace_list.traces)
 
@@ -86,8 +87,12 @@ class SAMgenerator:
             for act in trace.actions:  # for every act in the trace
                 if isinstance(act, Action):
                     if not self.L_bLA.keys().__contains__(act.name):  # if act name not already id the dictionary
-                        self.L_bLA[act.name] = set()  # initiate its set
-                    for f in act.precond.union(act.add, act.delete):  # for every fluent in the acts fluents
+                        self.L_bLA[act.name] = list()  # initiate its set
+
+                    a: set[Fluent] = set() if act.precond is None else act.precond
+                    b: set[Fluent] = set() if act.add is None else act.add
+                    c: set[Fluent] = set() if act.delete is None else act.delete
+                    for f in set().union(a, b, c):  # for every fluent in the acts fluents
                         param_indexes_in_literal: list[int] = list()  # initiate a set of ints
                         sorts: list[str] = list()
                         i: int = 0
@@ -98,7 +103,7 @@ class SAMgenerator:
                                 param_indexes_in_literal.append(i)  # append obj index to
                                 # the list
                             i += 1
-                        self.L_bLA[act.name].add((f.name, sorts, param_indexes_in_literal))
+                        self.L_bLA[act.name].append((f.name, sorts, param_indexes_in_literal))
         self.preA.update(self.L_bLA)
 
     def update_action_2_sort(self, action_2_sort: dict[str, list[str]]):
@@ -127,9 +132,20 @@ class SAMgenerator:
         self.add_literal_binding_to_eff(pre_state, post_state, act, add_delete="delete")
 
     def add_literal_binding_to_eff(self, s1: State, s2: State, act: Action,
-                                   add_delete="add" | "delete"):
+                                   add_delete="add"):
         """gets all fluents in the difference of s1-s2 and add all binding that
-           appears in difference to self.eff_'add_delete'[act.name] """
+           appears in difference to self.eff_'add_delete'[act.name]
+           Args:
+                    s1 (State):
+                        the state on the left side of the difference
+                    s2(State):
+                        the state on the right side of the difference.
+                    act(Action):
+                        the action of the effect
+                    add_delete(str):
+                        if ="add" it adds literal binding to add_effect
+                        if ="delete" it adds literal binding to the delete_effect
+           """
         for k, v in s1.fluents.items():
             if not s2.items().__contains__(k, v):
                 param_indexes_in_literal: list[int] = list()
@@ -146,16 +162,16 @@ class SAMgenerator:
                 if add_delete == "delete":
                     if self.effA_delete.keys().__contains__(act.name):  # if action name exists in dictionary
                         # then add
-                        self.effA_delete[act.name].add(bla)  # add it to add effect
+                        self.effA_delete[act.name].append(bla)  # add it to add effect
                     else:
-                        self.effA_delete[act.name] = {bla}
+                        self.effA_delete[act.name] = [bla]
 
                 if add_delete == "add":
                     if self.effA_add.keys().__contains__(
                             act.name):  # if action name exists in dictionary then add
-                        self.effA_add[act.name].add(bla)  # add it to add effect
+                        self.effA_add[act.name].append(bla)  # add it to add effect
                     else:
-                        self.effA_add[act.name] = {bla}
+                        self.effA_add[act.name] = [bla]
 
     def loop_over_action_triplets(self):
         """implement lines 5-11 in the SAM paper
@@ -166,10 +182,18 @@ class SAMgenerator:
             self.add_surely_effects(sas)
 
     # =======================================finalize and return a model============================================
-    def make_act_lifted_fluent_set(self, act_name,
-                                   keyword="PRE" | "ADD" | "DELETE") -> (
+    def make_act_lifted_fluent_set(self, act_name: str,
+                                   keyword="PRE") -> (
             set)[LearnedLiftedFluent]:
-        """ make the fluent set for an action based on the keyword provided"""
+        """ make the fluent set for an action based on the keyword provided
+        Args:
+                    act_name (str):
+                        the state on the left side of the difference
+                    keyword(str):
+                        if "PRE" makes all lifted preconditions for action.
+                        if "ADD" makes all lifted add effects for action
+                        if "DELETE" makes all lifted delete effects for action
+                    """
         learned_fluents_set = set()
         if keyword == "PRE":
             for fluents_set in self.preA[act_name]:
