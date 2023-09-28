@@ -61,6 +61,7 @@ class TestSAMgenerator(TestCase):
                          "drive-truck": ["truck", "location", "location", "city" ],
                          "fly-airplane":["airplane", "location", "location"]}
         sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=self.trace_list, action_2_sort=action_2_sort)
+        sam_generator.generate_model()
         print(sam_generator.L_bLA)
 
     def test_update_l_b_la(self):
