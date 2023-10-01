@@ -200,21 +200,18 @@ class SAMgenerator:
                     """
         learned_fluents_set = set()
         if keyword == "PRE":
-            for fluents_set in self.preA[act_name]:
-                for fluent_info in fluents_set: #0-> f_name 1-> sorts of action -> index of fluent sort
-                    lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
-                    learned_fluents_set.add(lifted_fluent)
+            for fluents_tuple in self.preA[act_name]:
+                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+                learned_fluents_set.add(lifted_fluent)
 
         if keyword == "ADD":
-            for fluents_set in self.effA_add[act_name]:
-                for fluent_info in fluents_set:
-                    lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
-                    learned_fluents_set.add(lifted_fluent)
+            for fluents_tuple in self.effA_add.get(act_name):
+                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+                learned_fluents_set.add(lifted_fluent)
         if keyword == "DELETE":
-            for fluents_set in self.effA_add[act_name]:
-                for fluent_info in fluents_set:
-                    lifted_fluent = LearnedLiftedFluent(fluent_info[0], fluent_info[1], fluent_info[2])
-                    learned_fluents_set.add(lifted_fluent)
+            for fluents_tuple in self.effA_add[act_name]:
+                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+                learned_fluents_set.add(lifted_fluent)
         return learned_fluents_set
 
     def make_learned_fluent_set(self):
