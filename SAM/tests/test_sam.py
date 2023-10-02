@@ -1,9 +1,8 @@
 from unittest import TestCase
 
-import macq.generate
 from macq.trace import Action, Fluent, action, PlanningObject, State, SAS, TraceList, Trace
 from macq.generate.pddl import Generator, TraceFromGoal
-from macq.extract import model, LearnedLiftedFluent, LearnedLiftedAction
+from macq.extract import model, LearnedLiftedFluent, LearnedLiftedAction, Model
 
 import sam
 
@@ -17,8 +16,115 @@ def get_fluent(name: str, objs: list[str]):
     return Fluent (name, objects)
 
 class TestSAMgenerator(TestCase):
+    action_2_sort_log = {"load-truck": ["package", "truck", "location"],
+                     "unload-truck": ["package", "truck", "location"],
+                     "load-airplane": ["package", "airplane", "location "],
+                     "unload-airplane": ["package", "airplane", "location "],
+                     "drive-truck": ["truck", "location", "location", "city"],
+                     "fly-airplane": ["airplane", "location", "location"]}
+    log_model: Model
+    def setUp(self) -> None:
+        lift_acts: set[LearnedLiftedAction] = set()
+        lift_flu: set[LearnedLiftedFluent] = set()
 
-    def test_model_extraction_1(self):
+        #LOAD TRUCK ACT
+        load_truck_pre = {LearnedLiftedFluent("at",["package", "location"],[0,2])}
+        load_truck_pre.add(LearnedLiftedFluent("at",["truck", "location"],[1,2]))
+        load_truck_pre.add(LearnedLiftedFluent("package", ["package"], [0]))
+        load_truck_pre.add(LearnedLiftedFluent("truck", ["truck"], [1]))
+        load_truck_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        load_truck_eff_add = {LearnedLiftedFluent("in", ["package", "truck"], [0, 1])}
+        load_truck_eff_delete = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+        load_truck: LearnedLiftedAction = LearnedLiftedAction("load-truck",
+                                                        ["package", "truck", "location"],
+                                                              precond=load_truck_pre,
+                                                              add=load_truck_eff_add, delete=load_truck_eff_delete)
+        lift_acts.add(load_truck)
+        lift_flu.update(load_truck_pre, load_truck_eff_add, load_truck_eff_delete)
+
+        #LOAD AIRPLANE ACT
+        load_airplane_pre = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+        load_airplane_pre.add(LearnedLiftedFluent("at", ["airplane", "location"], [1, 2]))
+        load_airplane_pre.add(LearnedLiftedFluent("package", ["package"], [0]))
+        load_airplane_pre.add(LearnedLiftedFluent("airplane", ["airplane"], [1]))
+        load_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        load_airplane_eff_add = {LearnedLiftedFluent("in", ["package", "airplane"], [0, 1])}
+        load_airplane_eff_delete = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+        load_airplane: LearnedLiftedAction = LearnedLiftedAction("load-airplane",
+                                                              ["package", "truck", "location"],
+                                                              precond=load_airplane_pre,
+                                                              add=load_airplane_eff_add, delete=load_airplane_eff_delete)
+        lift_acts.add(load_airplane)
+        lift_flu.update(load_airplane_eff_delete, load_airplane_eff_add, load_airplane_pre)
+
+        unload_truck_pre = {LearnedLiftedFluent("at", ["truck", "location"], [1, 2])}
+        unload_truck_pre.add(LearnedLiftedFluent("in", ["package", "truck"], [0, 1]))
+        unload_truck_pre.add(LearnedLiftedFluent("package", ["package"], [0]))
+        unload_truck_pre.add(LearnedLiftedFluent("truck", ["truck"], [1]))
+        unload_truck_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        unload_truck_eff_add = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+        unload_truck_eff_delete = {LearnedLiftedFluent("in", ["package", "truck"], [0, 1])}
+        unload_truck: LearnedLiftedAction = LearnedLiftedAction("unload-truck",
+                                                              ["package", "truck", "location"],
+                                                              precond=unload_truck_pre,
+                                                              add=unload_truck_eff_add, delete=unload_truck_eff_delete)
+        lift_acts.add(unload_truck)
+        lift_flu.update(unload_truck_pre, unload_truck_eff_add, unload_truck_eff_delete)
+
+        unload_airplane_pre = {LearnedLiftedFluent("at", ["airplane", "location"], [1, 2])}
+        unload_airplane_pre.add(LearnedLiftedFluent("in", ["package", "airplane"], [0, 1]))
+        unload_airplane_pre.add(LearnedLiftedFluent("package", ["package"], [0]))
+        unload_airplane_pre.add(LearnedLiftedFluent("airplane", ["airplane"], [1]))
+        unload_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        unload_airplane_eff_add = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+        unload_airplane_eff_delete = {LearnedLiftedFluent("in", ["package", "airplane"], [0, 1])}
+        unload_airplane: LearnedLiftedAction = LearnedLiftedAction("unload_airplane",
+                                                              ["package", "airplane", "location"],
+                                                              precond=unload_airplane_pre,
+                                                              add=unload_airplane_eff_add, delete=unload_airplane_eff_delete)
+        lift_acts.add(unload_airplane)
+        lift_flu.update(unload_airplane_pre, unload_airplane_eff_add, unload_airplane_eff_delete)
+
+        # "drive-truck": ["truck", "location", "location", "city"],
+        # "fly-airplane": ["airplane", "location", "location"]}
+        drive_truck_pre = {LearnedLiftedFluent("at", ["truck", "location"], [0, 1])}
+        drive_truck_pre.add(LearnedLiftedFluent("truck", ["truck"], [0]))
+        drive_truck_pre.add(LearnedLiftedFluent("location", ["location"], [1]))
+        drive_truck_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        drive_truck_pre.add(LearnedLiftedFluent("city", ["city"], [3]))
+        drive_truck_pre.add(LearnedLiftedFluent("in-city", ["location", "city"], [1,3]))
+        drive_truck_pre.add(LearnedLiftedFluent("in-city", ["location", "city"], [2,3]))
+
+        drive_truck_eff_add = {LearnedLiftedFluent("at", ["truck", "location"], [0, 2])}
+        drive_truck_eff_delete = {LearnedLiftedFluent("at", ["truck", "location"], [0, 2])}
+        drive_truck: LearnedLiftedAction = LearnedLiftedAction("drive-truck",
+                                                               ["truck", "location", "location", "city"],
+                                                               precond=drive_truck_pre,
+                                                               add=drive_truck_eff_add,
+                                                               delete= drive_truck_eff_delete)
+        lift_acts.add(drive_truck)
+        lift_flu.update(drive_truck_eff_add,drive_truck_eff_delete, drive_truck_pre)
+
+        fly_airplane_pre = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 1])}
+        fly_airplane_pre.add(LearnedLiftedFluent("airplane", ["airplane"], [0]))
+        fly_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [1]))
+        fly_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+        fly_airplane_eff_add = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 2])}
+        fly_airplane_eff_delete = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 2])}
+        fly_airplane: LearnedLiftedAction = LearnedLiftedAction("fly_airplane",
+                                                               ["airplane", "location", "location"],
+                                                               precond=drive_truck_pre,
+                                                               add=drive_truck_eff_add,
+                                                               delete= drive_truck_eff_delete)
+        lift_acts.add(fly_airplane)
+        lift_flu.update(fly_airplane_eff_add,fly_airplane_eff_delete, fly_airplane_pre)
+
+        self.log_model = Model(lift_flu, lift_acts)
+
+
+
+
+    def test_model_extraction_1_logistics(self):
         generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
         generator.change_goal({
             get_fluent(
@@ -114,120 +220,56 @@ class TestSAMgenerator(TestCase):
         traces.append(generator.generate_trace())
 
         trace_list: TraceList = TraceList(traces=traces)
-        action_2_sort = {"load-truck": ["package", "truck", "location"],
-                         "unload-truck": ["package", "truck", "location"],
-                         "load-airplane": ["package", "airplane", "location "],
-                         "unload-airplane": ["package", "airplane", "location "],
-                         "drive-truck": ["truck", "location", "location", "city" ],
-                         "fly-airplane":["airplane", "location", "location"]}
-        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=action_2_sort)
-        sam_model = sam_generator.generate_model()
-        print(sam_model.details()+"\n")
+        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
+        sam_model: Model = sam_generator.generate_model()
+        print(f"MODEL 1\n {sam_model.details()}")
 
 
-    def test_model_extraction_2(self):
+    def test_model_extraction_2_logistics(self):
         pass
-        # generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
-        # generator.change_goal({
-        #     get_fluent(
-        #         "at",
-        #         ["package package6", "location city1-2"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package package5", "location city6-2"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package package4", "location city3-2"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package package3", "location city6-1"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package package2", "location city6-2"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package package1", "location city2-1"]
-        #     )
-        # })
-        # traces = [generator.generate_trace()]
-        # # prob 2
-        # generator = TraceFromGoal(problem_id=1496)
-        # generator.change_goal({
-        #     get_fluent(
-        #         "at",
-        #         ["package obj31", "location apt4"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj22", "location apt2"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj42", "location apt4"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj53", "location apt3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj12", "location pos1"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj32", "location apt1"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj43", "location apt3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj52", "location apt1"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj51", "location apt3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj21", "location apt4"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj11", "location pos3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj23", "location pos4"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj33", "location pos3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj13", "location apt3"]
-        #     ),
-        #     get_fluent(
-        #         "at",
-        #         ["package obj41", "location pos1"]
-        #     )
-        # })
-        # traces.append(generator.generate_trace())
-        #
-        # trace_list: TraceList = TraceList(traces=traces)
-        # action_2_sort = {"load-truck": ["package", "truck", "location"],
-        #                  "unload-truck": ["package", "truck", "location"],
-        #                  "load-airplane": ["package", "airplane", "location "],
-        #                  "unload-airplane": ["package", "airplane", "location "],
-        #                  "drive-truck": ["truck", "location", "location", "city" ],
-        #                  "fly-airplane":["airplane", "location", "location"]}
-        # sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=action_2_sort)
-        # sam_model = sam_generator.generate_model()
-        # print(sam_model.details()+"\n")
+        generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
+        generator.change_goal({
+            get_fluent(
+                "at",
+                ["package package6", "location city1-2"]
+            ),
+            get_fluent(
+                "at",
+                ["package package5", "location city6-2"]
+            )
+        })
+        traces: list[Trace] = [generator.generate_trace()]
+        # prob 2
+        generator = TraceFromGoal(problem_id=1496)
+        generator.change_goal({
+            get_fluent(
+                "at",
+                ["package obj31", "location apt4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj22", "location apt2"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj42", "location apt4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj53", "location apt3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj12", "location pos1"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj32", "location apt1"]
+            )
+        })
+        traces.append(generator.generate_trace())
+
+        trace_list: TraceList = TraceList(traces=traces)
+        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
+        sam_model: Model = sam_generator.generate_model()
+        print(f"MODEL 2 \n{sam_model.details()}")
