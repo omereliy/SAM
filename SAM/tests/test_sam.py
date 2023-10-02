@@ -17,11 +17,10 @@ def get_fluent(name: str, objs: list[str]):
     return Fluent (name, objects)
 
 class TestSAMgenerator(TestCase):
-    generator: TraceFromGoal
 
-    def setUp(self):
-        self.generator = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
-        self.generator.change_goal({
+    def test_model_extraction_1(self):
+        generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
+        generator.change_goal({
             get_fluent(
                 "at",
                 ["package package6", "location city1-2"]
@@ -32,68 +31,203 @@ class TestSAMgenerator(TestCase):
             ),
             get_fluent(
                 "at",
-                ["package package4 ", "location city3-2"]
+                ["package package4", "location city3-2"]
             ),
             get_fluent(
                 "at",
-                ["package package3 ", "location city6-1"]
+                ["package package3", "location city6-1"]
             ),
             get_fluent(
                 "at",
-                ["package package2 ", "location city6-2"]
+                ["package package2", "location city6-2"]
             ),
             get_fluent(
                 "at",
-                ["package package1 ", "location city2-1"]
+                ["package package1", "location city2-1"]
             )
         })
-        self.plan: macq.generate.Plan = self.generator.generate_plan()
-        self.trace_list: TraceList = TraceList([self.generator.generate_trace()])
+        traces = [generator.generate_trace()]
+        # prob 2
+        generator = TraceFromGoal(problem_id=1496)
+        generator.change_goal({
+            get_fluent(
+                "at",
+                ["package obj31", "location apt4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj22", "location apt2"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj42", "location apt4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj53", "location apt3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj12", "location pos1"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj32", "location apt1"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj43", "location apt3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj52", "location apt1"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj51", "location apt3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj21", "location apt4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj11", "location pos3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj23", "location pos4"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj33", "location pos3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj13", "location apt3"]
+            ),
+            get_fluent(
+                "at",
+                ["package obj41", "location pos1"]
+            )
+        })
+        traces.append(generator.generate_trace())
 
-
-    def test_update_trace_list(self):
-        # it works!!!!
-        # self.trace_list.traces[0].print(view="actions")
+        trace_list: TraceList = TraceList(traces=traces)
         action_2_sort = {"load-truck": ["package", "truck", "location"],
                          "unload-truck": ["package", "truck", "location"],
                          "load-airplane": ["package", "airplane", "location "],
                          "unload-airplane": ["package", "airplane", "location "],
                          "drive-truck": ["truck", "location", "location", "city" ],
                          "fly-airplane":["airplane", "location", "location"]}
-        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=self.trace_list, action_2_sort=action_2_sort)
+        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=action_2_sort)
         sam_model = sam_generator.generate_model()
-        print(sam_model.details())
+        print(sam_model.details()+"\n")
 
 
-    def test_update_l_b_la(self):
-        self.fail()
-
-    def test_update_action_2_sort(self):
-        self.fail()
-
-    def test_remove_redundant_preconditions(self):
-        self.fail()
-
-    def test_add_surely_effects(self):
-        self.fail()
-
-    def test_add_literal_binding_to_eff(self):
-        self.fail()
-
-    def test_loop_over_action_triplets(self):
-        self.fail()
-
-    def test_make_act_lifted_fluent_set(self):
-        self.fail()
-
-    def test_make_learned_fluent_set(self):
-        self.fail()
-
-    def test_make_lifted_instances(self):
-        self.fail()
-
-    def test_generate_model(self):
-        self.fail()
-
-    def test_make_act_sorts(self):
+    def test_model_extraction_2(self):
         pass
+        # generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
+        # generator.change_goal({
+        #     get_fluent(
+        #         "at",
+        #         ["package package6", "location city1-2"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package package5", "location city6-2"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package package4", "location city3-2"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package package3", "location city6-1"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package package2", "location city6-2"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package package1", "location city2-1"]
+        #     )
+        # })
+        # traces = [generator.generate_trace()]
+        # # prob 2
+        # generator = TraceFromGoal(problem_id=1496)
+        # generator.change_goal({
+        #     get_fluent(
+        #         "at",
+        #         ["package obj31", "location apt4"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj22", "location apt2"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj42", "location apt4"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj53", "location apt3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj12", "location pos1"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj32", "location apt1"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj43", "location apt3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj52", "location apt1"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj51", "location apt3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj21", "location apt4"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj11", "location pos3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj23", "location pos4"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj33", "location pos3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj13", "location apt3"]
+        #     ),
+        #     get_fluent(
+        #         "at",
+        #         ["package obj41", "location pos1"]
+        #     )
+        # })
+        # traces.append(generator.generate_trace())
+        #
+        # trace_list: TraceList = TraceList(traces=traces)
+        # action_2_sort = {"load-truck": ["package", "truck", "location"],
+        #                  "unload-truck": ["package", "truck", "location"],
+        #                  "load-airplane": ["package", "airplane", "location "],
+        #                  "unload-airplane": ["package", "airplane", "location "],
+        #                  "drive-truck": ["truck", "location", "location", "city" ],
+        #                  "fly-airplane":["airplane", "location", "location"]}
+        # sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=action_2_sort)
+        # sam_model = sam_generator.generate_model()
+        # print(sam_model.details()+"\n")
