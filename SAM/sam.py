@@ -1,20 +1,17 @@
-from macq.trace import Action, Fluent, action, PlanningObject, State, SAS, TraceList, Trace
+from macq.trace import Action, Fluent, PlanningObject, State, SAS, TraceList, Trace
 from macq.extract import model, LearnedLiftedFluent, LearnedLiftedAction
+from logging import Logger
 
-
-def check_injective_assumption(parameters: list[PlanningObject], action_name):
+def check_injective_assumption(parameters: list[PlanningObject], action_name, logger:Logger):
     """meant to check that all grounded actions parameters are bound to different objects"""
 
-    object_set: set[action.PlanningObject] = set()
+    object_set: set[PlanningObject] = set()
     for p in parameters:
-        if isinstance(p, action.PlanningObject):
-            if object_set.__contains__(p):
-                raise Exception("parameters of function must all be different due to the injective "
-                                "assumption\naction identifier: " + action_name)
-            else:
-                object_set.add(p)
+        if object_set.__contains__(p):
+            logger.warning("parameters of function must all be different due to the injective "
+                            "assumption\naction identifier: " + action_name + "\n"+"objects: "+ parameters.__str__())
         else:
-            raise TypeError("parameter of action was not an object\naction identifier: " + action_name)
+            object_set.add(p)
 
 
 class SAMgenerator:
@@ -80,9 +77,9 @@ class SAMgenerator:
         self.update_action_triplets(trace_list.traces)
         self.update_L_bLA(trace_list.traces)
 
-    def update_L_bLA(self, traces: list[Trace]):#0-> f_name 1-> sorts of action -> index of fluent sort
+    def update_L_bLA(self, traces: list[Trace]):
         """collects all parameter bound literals and maps them based on action name
-                values of dict is a set[(fluent.name, set[indexes of parameters that fluent applies on])]"""
+                values of dict is a set[(fluent.name: str, sorts:list[str], param_indcis:set[int])]"""
         for trace in traces:  # for every trace in the trace list
             for act in trace.actions:  # for every act in the trace
                 if isinstance(act, Action):
@@ -113,6 +110,7 @@ class SAMgenerator:
     def update_action_2_sort(self, action_2_sort: dict[str, list[str]]):
         """inserts key and value, replaces value of key already if key already in dict"""
         self.action_2_sort.update(action_2_sort)
+
 
     # =======================================ALGORITHM LOGIC========================================================
     def remove_redundant_preconditions(self, sas: SAS):  # based on lines 6 to 8 in paper
@@ -260,10 +258,9 @@ class SAM:
         """Creates a new SAM instance. if input includes sam_generator object than it uses the object provided
         instead of creating a new one
             Args:
-                types (dict str -> str): a dic mapping each type to its super type, for example: [mazda, car].
-                    means mazda type is type of car type
+                types set(str): a set of all types in the traces provided
                 trace_list(TraceList): an object holding a
-                    list of traces from the same domain.
+                    list of traces from the same domain. (macq.trace.trace_list.TraceList)
                 action_2_sort(dict str -> list[str])
 
                                 :return:
