@@ -125,7 +125,7 @@ class TestSAMgenerator(TestCase):
                      "load-airplane": ["package", "airplane", "location"],
                      "unload-airplane": ["package", "airplane", "location"],
                      "drive-truck": ["truck", "location", "location", "city"],
-                     "fly-airplane": ["airplane", "location", "location"]}
+                     "fly-airplane": ["airplane", "airport", "airport"]}
 
 
     def setUp(self) -> None:

@@ -21,16 +21,16 @@ class SAMgenerator:
     fluents: set[Fluent] = set()  # list of all fluents collected from all traces
     trace_list: TraceList = TraceList()
     L_bLA: dict[str, list[
-        (str, list[str], set[int])]] = dict()  # represents all parameter bound literals mapped by action
+        (str, list[str], list[int])]] = dict()  # represents all parameter bound literals mapped by action
     effA_add: dict[str, list[
-        (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+        (str, list[str], list[int])]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
     effA_delete: dict[str, list[
-        (str, list[str], set[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+        (str, list[str], list[int])]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
     #  add is 0 index in tuple and delete is 1
     preA: dict[str, list[
-        (str, list[str], set[int])]] = dict() # represents  parameter bound literals mapped by action, of pre-cond
+        (str, list[str], list[int])]] = dict() # represents  parameter bound literals mapped by action, of pre-cond
     # LiftedPreA, LiftedEFF both of them are stets of learned lifted fluents
     types: set[str] = set()
     action_triplets: set[SAS] = set()
@@ -119,7 +119,7 @@ class SAMgenerator:
         pre_state: State = sas.pre_state
         for param_bound_lit in self.preA[act.name]:
             fluent = Fluent(param_bound_lit[0], [obj for obj in act.obj_params if param_bound_lit[2].__contains__(act.obj_params.index(obj))])  # make a fluent instance so we can use eq function
-            if not pre_state.fluents.keys().__contains__(fluent) or not pre_state.fluents[fluent]:  # remove if
+            if (pre_state.fluents.keys().__contains__(fluent)) and not pre_state.fluents[fluent]:  # remove if
                 # unbound or if not true, means, preA contains at the end only true value fluents
                 self.preA[act.name].remove(param_bound_lit)
 
