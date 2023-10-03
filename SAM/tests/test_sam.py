@@ -1,7 +1,7 @@
 from unittest import TestCase
-from macq.trace import Action, Fluent, action, PlanningObject, State, SAS, TraceList, Trace
-from macq.generate.pddl import Generator, TraceFromGoal
-from macq.extract import model, LearnedLiftedFluent, LearnedLiftedAction, Model
+from macq.trace import Fluent, PlanningObject, TraceList, Trace
+from macq.generate.pddl import TraceFromGoal
+from macq.extract import LearnedLiftedFluent, LearnedLiftedAction, Model
 
 import sam
 
@@ -11,8 +11,8 @@ import sam
 
 def get_fluent(name: str, objs: list[str]):
     objects = [PlanningObject(o.split()[0], o.split()[1])
-    for o in objs]
-    return Fluent (name, objects)
+               for o in objs]
+    return Fluent(name, objects)
 
 
 def make_log_model():
@@ -121,19 +121,15 @@ class TestSAMgenerator(TestCase):
     # all logistic domain info for tests
     log_model: Model
     action_2_sort_log = {"load-truck": ["package", "truck", "location"],
-                     "unload-truck": ["package", "truck", "location"],
-                     "load-airplane": ["package", "airplane", "location"],
-                     "unload-airplane": ["package", "airplane", "location"],
-                     "drive-truck": ["truck", "location", "location", "city"],
-                     "fly-airplane": ["airplane", "airport", "airport"]}
-
+                         "unload-truck": ["package", "truck", "location"],
+                         "load-airplane": ["package", "airplane", "location"],
+                         "unload-airplane": ["package", "airplane", "location"],
+                         "drive-truck": ["truck", "location", "location", "city"],
+                         "fly-airplane": ["airplane", "airport", "airport"]}
 
     def setUp(self) -> None:
         self.log_model = make_log_model()
         # setting up the logistic hand made action model
-
-
-
 
     def test_model_extraction_1_logistics(self):
         generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
@@ -233,7 +229,6 @@ class TestSAMgenerator(TestCase):
         sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
         sam_model: Model = sam_generator.generate_model()
         print(f"MODEL 1\n {sam_model.details()}")
-
 
     def test_model_extraction_2_logistics(self):
         pass
