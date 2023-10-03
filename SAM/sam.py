@@ -12,6 +12,22 @@ def check_injective_assumption(parameters: list[PlanningObject], action_name, lo
                             "assumption\naction identifier: " + action_name + "\n"+"objects: "+ parameters.__str__())
         else:
             object_set.add(p)
+class FluentInfo:
+    name: str
+    sorts: list[str]
+    param_act_inds: list[int]
+
+    def __init__(self, name: str, sorts: list[str], param_act_inds: list[int]):
+        self.name= name
+        self.sorts = sorts
+        self.param_act_inds = param_act_inds
+
+    def __eq__(self, other):
+        return isinstance(other, FluentInfo) and hash(self) == hash(other)
+
+    def __hash__(self):
+        # Order of objects is important!
+        return hash(f"{self.name} {self.sorts} {self.param_act_inds}")
 
 
 class SAMgenerator:
@@ -20,17 +36,13 @@ class SAMgenerator:
     """
     fluents: set[Fluent] = set()  # list of all fluents collected from all traces
     trace_list: TraceList = TraceList()
-    L_bLA: dict[str, list[
-        (str, list[str], list[int])]] = dict()  # represents all parameter bound literals mapped by action
-    effA_add: dict[str, list[
-        (str, list[str], list[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+    L_bLA: dict[str, set[FluentInfo]] = dict()  # represents all parameter bound literals mapped by action
+    effA_add: dict[str, set[FluentInfo]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
-    effA_delete: dict[str, list[
-        (str, list[str], list[int])]] = dict()  # dict like preA that holds delete and add biding for each action
+    effA_delete: dict[str, set[FluentInfo]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
     #  add is 0 index in tuple and delete is 1
-    preA: dict[str, list[
-        (str, list[str], list[int])]] = dict() # represents  parameter bound literals mapped by action, of pre-cond
+    preA: dict[str, set[FluentInfo]] = dict() # represents  parameter bound literals mapped by action, of pre-cond
     # LiftedPreA, LiftedEFF both of them are stets of learned lifted fluents
     types: set[str] = set()
     action_triplets: set[SAS] = set()
@@ -84,7 +96,7 @@ class SAMgenerator:
             for act in trace.actions:  # for every act in the trace
                 if isinstance(act, Action):
                     if not self.L_bLA.keys().__contains__(act.name):  # if act name not already id the dictionary
-                         self.L_bLA[act.name] = list()  # initiate its set
+                         self.L_bLA[act.name] = set()  # initiate its set
 
                     a: set[Fluent] = set() if act.precond is None else act.precond
                     b: set[Fluent] = set() if act.add is None else act.add
@@ -104,7 +116,7 @@ class SAMgenerator:
                             # for j in range(sorts.__len__()):
                             #     if not param_indexes_in_literal.__contains__(j):
                             #         sorts.pop(i-1)
-                        self.L_bLA[act.name].append((f.name, sorts, param_indexes_in_literal))
+                        self.L_bLA[act.name].add(FluentInfo(f.name, sorts, param_indexes_in_literal))
         self.preA = self.L_bLA.copy()
 
     def update_action_2_sort(self, action_2_sort: dict[str, list[str]]):
@@ -117,11 +129,14 @@ class SAMgenerator:
         """removes all parameter-bound literals that there groundings are not pre-state"""
         act: Action = sas.action
         pre_state: State = sas.pre_state
-        for param_bound_lit in self.preA[act.name]:
-            fluent = Fluent(param_bound_lit[0], [obj for obj in act.obj_params if param_bound_lit[2].__contains__(act.obj_params.index(obj))])  # make a fluent instance so we can use eq function
+        to_remove: set[FluentInfo] = set()
+        for flu_inf in self.preA[act.name]:
+            fluent = Fluent(flu_inf.name, [obj for obj in act.obj_params if flu_inf.param_act_inds.__contains__(act.obj_params.index(obj))])  # make a fluent instance so we can use eq function
             if (pre_state.fluents.keys().__contains__(fluent)) and not pre_state.fluents[fluent]:  # remove if
                 # unbound or if not true, means, preA contains at the end only true value fluents
-                self.preA[act.name].remove(param_bound_lit)
+                to_remove.add(flu_inf)
+        for flu_inf in to_remove:
+            self.preA[act.name].remove(flu_inf)
 
     def add_surely_effects(self, sas: SAS):  # based on lines 9 to 11 in paper
         """add all parameter-bound literals that are surely an effect"""
@@ -161,20 +176,20 @@ class SAMgenerator:
                     # for j in range(sorts.__len__()):
                     #     if not param_indexes_in_literal.__contains__(j):
                     #         sorts.pop(i-1)
-                bla: tuple[str, list[str], list[int]] = (fluent_name, sorts, param_indexes_in_literal)
+                bla: FluentInfo = FluentInfo(fluent_name, sorts, param_indexes_in_literal)
                 if add_delete == "delete":
                     if self.effA_delete.keys().__contains__(act.name):  # if action name exists in dictionary
                         # then add
-                        self.effA_delete[act.name].append(bla)  # add it to add effect
+                        self.effA_delete[act.name].add(bla)  # add it to add effect
                     else:
-                        self.effA_delete[act.name] = [bla]
+                        self.effA_delete[act.name] = {bla}
 
                 if add_delete == "add":
                     if self.effA_add.keys().__contains__(
                             act.name):  # if action name exists in dictionary then add
-                        self.effA_add[act.name].append(bla)  # add it to add effect
+                        self.effA_add[act.name].add(bla)  # add it to add effect
                     else:
-                        self.effA_add[act.name] = [bla]
+                        self.effA_add[act.name] = {bla}
 
     def loop_over_action_triplets(self):
         """implement lines 5-11 in the SAM paper
@@ -199,17 +214,17 @@ class SAMgenerator:
                     """
         learned_fluents_set = set()
         if keyword == "PRE":
-            for fluents_tuple in self.preA[act_name]:
-                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+            for flu_inf in self.preA[act_name]:
+                lifted_fluent = LearnedLiftedFluent(flu_inf.name, flu_inf.sorts, flu_inf.param_act_inds)
                 learned_fluents_set.add(lifted_fluent)
 
         if keyword == "ADD":
-            for fluents_tuple in self.effA_add.get(act_name):
-                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+            for flu_inf in self.effA_add.get(act_name):
+                lifted_fluent = LearnedLiftedFluent(flu_inf.name, flu_inf.sorts, flu_inf.param_act_inds)
                 learned_fluents_set.add(lifted_fluent)
         if keyword == "DELETE":
-            for fluents_tuple in self.effA_delete[act_name]:
-                lifted_fluent = LearnedLiftedFluent(fluents_tuple[0], fluents_tuple[1], fluents_tuple[2])
+            for flu_inf in self.effA_delete[act_name]:
+                lifted_fluent = LearnedLiftedFluent(flu_inf.name, flu_inf.sorts, flu_inf.param_act_inds)
                 learned_fluents_set.add(lifted_fluent)
         return learned_fluents_set
 
