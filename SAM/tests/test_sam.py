@@ -130,6 +130,7 @@ class TestSAMgenerator(TestCase):
 
     def setUp(self) -> None:
         self.log_model = make_log_model()
+        # setting up the logistic hand made action model
 
 
 
