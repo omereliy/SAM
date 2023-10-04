@@ -20,7 +20,7 @@ def make_log_model():
     lift_flu: set[LearnedLiftedFluent] = set()
 
     # LOAD TRUCK ACT
-    load_truck_pre = {LearnedLiftedFluent("at", ["package", "location"], [0, 2])}
+    load_truck_pre = {LearnedLiftedFluent("at", ["obj", "location"], [0, 2])}
     load_truck_pre.add(LearnedLiftedFluent("at", ["truck", "location"], [1, 2]))
     load_truck_pre.add(LearnedLiftedFluent("package", ["package"], [0]))
     load_truck_pre.add(LearnedLiftedFluent("truck", ["truck"], [1]))
@@ -102,8 +102,8 @@ def make_log_model():
 
     fly_airplane_pre = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 1])}
     fly_airplane_pre.add(LearnedLiftedFluent("airplane", ["airplane"], [0]))
-    fly_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [1]))
-    fly_airplane_pre.add(LearnedLiftedFluent("location", ["location"], [2]))
+    fly_airplane_pre.add(LearnedLiftedFluent("airport", ["airport"], [1]))
+    fly_airplane_pre.add(LearnedLiftedFluent("airport", ["airport"], [2]))
     fly_airplane_eff_add = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 2])}
     fly_airplane_eff_delete = {LearnedLiftedFluent("at", ["airplane", "location"], [0, 2])}
     fly_airplane: LearnedLiftedAction = LearnedLiftedAction("fly_airplane",
@@ -120,12 +120,12 @@ def make_log_model():
 class TestSAMgenerator(TestCase):
     # all logistic domain info for tests
     log_model: Model
-    action_2_sort_log = {"load-truck": ["package", "truck", "location"],
-                         "unload-truck": ["package", "truck", "location"],
-                         "load-airplane": ["package", "airplane", "location"],
-                         "unload-airplane": ["package", "airplane", "location"],
-                         "drive-truck": ["truck", "location", "location", "city"],
-                         "fly-airplane": ["airplane", "airport", "airport"]}
+    action_2_sort_log = {"load-truck": ["obj", "tr", "loc"],
+                         "unload-truck": ["obj", "tr", "loc"],
+                         "load-airplane": ["obj", "a-p", "loc"],
+                         "unload-airplane": ["obj", "a-p", "loc"],
+                         "drive-truck": ["tr", "loc-from", "loc-to", "city"],
+                         "fly-airplane": ["a-p", "airport-from", "airport-to"]}
 
     def setUp(self) -> None:
         self.log_model = make_log_model()
@@ -228,52 +228,54 @@ class TestSAMgenerator(TestCase):
         trace_list: TraceList = TraceList(traces=traces)
         sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
         sam_model: Model = sam_generator.generate_model()
-        print(f"MODEL 1\n {sam_model.details()}")
+        print(sam_model.details())
+        print("\n\n\n\n===================================")
+        print(f"MODEL 1\n {sam_model.to_pddl('logistics', 'log00_x',generator.pddl_dom, generator.pddl_prob)}")
 
-    def test_model_extraction_2_logistics(self):
-        pass
-        generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
-        generator.change_goal({
-            get_fluent(
-                "at",
-                ["package package6", "location city1-2"]
-            ),
-            get_fluent(
-                "at",
-                ["package package5", "location city6-2"]
-            )
-        })
-        traces: list[Trace] = [generator.generate_trace()]
-        # prob 2
-        generator = TraceFromGoal(problem_id=1496)
-        generator.change_goal({
-            get_fluent(
-                "at",
-                ["package obj31", "location apt4"]
-            ),
-            get_fluent(
-                "at",
-                ["package obj22", "location apt2"]
-            ),
-            get_fluent(
-                "at",
-                ["package obj42", "location apt4"]
-            ),
-            get_fluent(
-                "at",
-                ["package obj53", "location apt3"]
-            ),
-            get_fluent(
-                "at",
-                ["package obj12", "location pos1"]
-            ),
-            get_fluent(
-                "at",
-                ["package obj32", "location apt1"]
-            )
-        })
-        traces.append(generator.generate_trace())
-        trace_list: TraceList = TraceList(traces=traces)
-        sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
-        sam_model: Model = sam_generator.generate_model()
-        print(f"MODEL 2 \n{sam_model.details()}")
+    # def test_model_extraction_2_logistics(self):
+    #     pass
+    #     generator: TraceFromGoal = TraceFromGoal(problem_id=1481, observe_pres_effs=True)
+    #     generator.change_goal({
+    #         get_fluent(
+    #             "at",
+    #             ["package package6", "location city1-2"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package package5", "location city6-2"]
+    #         )
+    #     })
+    #     traces: list[Trace] = [generator.generate_trace()]
+    #     # prob 2
+    #     generator = TraceFromGoal(problem_id=1496)
+    #     generator.change_goal({
+    #         get_fluent(
+    #             "at",
+    #             ["package obj31", "location apt4"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package obj22", "location apt2"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package obj42", "location apt4"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package obj53", "location apt3"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package obj12", "location pos1"]
+    #         ),
+    #         get_fluent(
+    #             "at",
+    #             ["package obj32", "location apt1"]
+    #         )
+    #     })
+    #     traces.append(generator.generate_trace())
+    #     trace_list: TraceList = TraceList(traces=traces)
+    #     sam_generator: sam.SAMgenerator = sam.SAMgenerator(trace_list=trace_list, action_2_sort=self.action_2_sort_log)
+    #     sam_model: Model = sam_generator.generate_model()
+    #     print(f"MODEL 2 \n{sam_model.details()}")

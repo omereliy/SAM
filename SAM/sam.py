@@ -2,23 +2,26 @@ from macq.trace import Action, Fluent, PlanningObject, State, SAS, TraceList, Tr
 from macq.extract import model, LearnedLiftedFluent, LearnedLiftedAction
 from logging import Logger
 
-def check_injective_assumption(parameters: list[PlanningObject], action_name, logger:Logger):
+
+def check_injective_assumption(parameters: list[PlanningObject], action_name, logger: Logger):
     """meant to check that all grounded actions parameters are bound to different objects"""
 
     object_set: set[PlanningObject] = set()
     for p in parameters:
         if object_set.__contains__(p):
             logger.warning("parameters of function must all be different due to the injective "
-                            "assumption\naction identifier: " + action_name + "\n"+"objects: "+ parameters.__str__())
+                           "assumption\naction identifier: " + action_name + "\n" + "objects: " + parameters.__str__())
         else:
             object_set.add(p)
+
+
 class FluentInfo:
     name: str
     sorts: list[str]
     param_act_inds: list[int]
 
     def __init__(self, name: str, sorts: list[str], param_act_inds: list[int]):
-        self.name= name
+        self.name = name
         self.sorts = sorts
         self.param_act_inds = param_act_inds
 
@@ -26,8 +29,7 @@ class FluentInfo:
         return isinstance(other, FluentInfo) and hash(self) == hash(other)
 
     def __hash__(self):
-        # Order of objects is important!
-        return hash(f"{self.name} {self.sorts} {self.param_act_inds}")
+        return hash(f"{self.name} {self.sorts}")
 
 
 class SAMgenerator:
@@ -42,7 +44,7 @@ class SAMgenerator:
     effA_delete: dict[str, set[FluentInfo]] = dict()  # dict like preA that holds delete and add biding for each action
     # name
     #  add is 0 index in tuple and delete is 1
-    preA: dict[str, set[FluentInfo]] = dict() # represents  parameter bound literals mapped by action, of pre-cond
+    preA: dict[str, set[FluentInfo]] = dict()  # represents  parameter bound literals mapped by action, of pre-cond
     # LiftedPreA, LiftedEFF both of them are stets of learned lifted fluents
     types: set[str] = set()
     action_triplets: set[SAS] = set()
@@ -55,7 +57,7 @@ class SAMgenerator:
                  action_2_sort: dict[str, list[str]] = None):
         """Creates a new SAMgenerator instance.
                Args:
-                    types (dict str -> str):
+                    types (set[str]):
                         a dic mapping each type to its super type, for example: [mazda, car].
                         means mazda type is type of car type
                     trace_list(TraceList):
@@ -91,12 +93,12 @@ class SAMgenerator:
 
     def update_L_bLA(self, traces: list[Trace]):
         """collects all parameter bound literals and maps them based on action name
-                values of dict is a set[(fluent.name: str, sorts:list[str], param_indcis:set[int])]"""
+                values of dict is a set[(fluent.name: str, sorts:list[str], param_inds:set[int])]"""
         for trace in traces:  # for every trace in the trace list
             for act in trace.actions:  # for every act in the trace
                 if isinstance(act, Action):
                     if not self.L_bLA.keys().__contains__(act.name):  # if act name not already id the dictionary
-                         self.L_bLA[act.name] = set()  # initiate its set
+                        self.L_bLA[act.name] = set()  # initiate its set
 
                     a: set[Fluent] = set() if act.precond is None else act.precond
                     b: set[Fluent] = set() if act.add is None else act.add
@@ -123,7 +125,6 @@ class SAMgenerator:
         """inserts key and value, replaces value of key already if key already in dict"""
         self.action_2_sort.update(action_2_sort)
 
-
     # =======================================ALGORITHM LOGIC========================================================
     def remove_redundant_preconditions(self, sas: SAS):  # based on lines 6 to 8 in paper
         """removes all parameter-bound literals that there groundings are not pre-state"""
@@ -131,7 +132,8 @@ class SAMgenerator:
         pre_state: State = sas.pre_state
         to_remove: set[FluentInfo] = set()
         for flu_inf in self.preA[act.name]:
-            fluent = Fluent(flu_inf.name, [obj for obj in act.obj_params if flu_inf.param_act_inds.__contains__(act.obj_params.index(obj))])  # make a fluent instance so we can use eq function
+            fluent = Fluent(flu_inf.name, [obj for obj in act.obj_params if flu_inf.param_act_inds.__contains__(
+                act.obj_params.index(obj))])  # make a fluent instance so we can use eq function
             if (pre_state.fluents.keys().__contains__(fluent)) and not pre_state.fluents[fluent]:  # remove if
                 # unbound or if not true, means, preA contains at the end only true value fluents
                 to_remove.add(flu_inf)
@@ -234,6 +236,15 @@ class SAMgenerator:
             self.learned_lifted_fluents.update(set() if lift_act.precond is None else lift_act.precond,
                                                set() if lift_act.add is None else lift_act.add,
                                                set() if lift_act.delete is None else lift_act.delete)
+        flu_name_2_count: dict[str, int] = dict()
+        for i, flu in enumerate(self.learned_lifted_fluents):
+            if isinstance(flu, LearnedLiftedFluent):
+                if flu_name_2_count.keys().__contains__(flu.name):
+                    flu_name_2_count[flu.name] += 1
+                    flu.name = f"{flu.name}{i}"
+                else:
+                    flu_name_2_count[flu.name] = 0
+                    flu.name = f"{flu.name}{i}"
 
     def make_lifted_instances(self):
         """makes the learned lifted and learned fluents set based
