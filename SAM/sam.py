@@ -236,15 +236,13 @@ class SAMgenerator:
             self.learned_lifted_fluents.update(set() if lift_act.precond is None else lift_act.precond,
                                                set() if lift_act.add is None else lift_act.add,
                                                set() if lift_act.delete is None else lift_act.delete)
-        flu_name_2_count: dict[str, int] = dict()
-        for i, flu in enumerate(self.learned_lifted_fluents):
-            if isinstance(flu, LearnedLiftedFluent):
-                if flu_name_2_count.keys().__contains__(flu.name):
-                    flu_name_2_count[flu.name] += 1
-                    flu.name = f"{flu.name}{i}"
-                else:
-                    flu_name_2_count[flu.name] = 0
-                    flu.name = f"{flu.name}{i}"
+        new_fluent_set: set[LearnedLiftedFluent] = set()
+        for lifted_flu in self.learned_lifted_fluents:
+            new_fluent_set.add(LearnedLiftedFluent(lifted_flu.name,
+                                                   [f"obj{i}" for i,s in enumerate(lifted_flu.param_sorts)],list()))
+            # ignoring warning because it's handled in class
+        self.learned_lifted_fluents = new_fluent_set
+
 
     def make_lifted_instances(self):
         """makes the learned lifted and learned fluents set based
