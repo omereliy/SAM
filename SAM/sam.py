@@ -113,11 +113,7 @@ class SAMgenerator:
                             if f.objects.__contains__(obj):  # if the object is true in fluent then
                                 param_indexes_in_literal.append(i)  # append obj index to
                                 sorts.append(self.action_2_sort[act.name].__getitem__(i))
-                                # the list
                             i += 1
-                            # for j in range(sorts.__len__()):
-                            #     if not param_indexes_in_literal.__contains__(j):
-                            #         sorts.pop(i-1)
                         self.L_bLA[act.name].add(FluentInfo(f.name, sorts, param_indexes_in_literal))
         self.preA = self.L_bLA.copy()
 
@@ -237,11 +233,10 @@ class SAMgenerator:
                                                set() if lift_act.add is None else lift_act.add,
                                                set() if lift_act.delete is None else lift_act.delete)
         new_fluent_set: set[LearnedLiftedFluent] = set()
-        for lifted_flu in self.learned_lifted_fluents:
-            new_fluent_set.add(LearnedLiftedFluent(lifted_flu.name,
-                                                   [f"obj{i}" for i,s in enumerate(lifted_flu.param_sorts)],list()))
-            # ignoring warning because it's handled in class
-        self.learned_lifted_fluents = new_fluent_set
+        # for lifted_flu in self.learned_lifted_fluents:
+        #     new_fluent_set.add(LearnedLiftedFluent(lifted_flu.name,
+        #                                            [f"obj{i}" for i,s in enumerate(lifted_flu.param_sorts)],list()))
+        # self.learned_lifted_fluents = new_fluent_set
 
 
     def make_lifted_instances(self):
